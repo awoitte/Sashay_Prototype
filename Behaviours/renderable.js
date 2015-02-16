@@ -1,6 +1,6 @@
 var _ = require("underscore"),
     Dictionary = require("../Helpers/dictionary"),
-    Artist = require("../DOMArtist");
+    Artist = require("../CanvasArtist");
 
 module.exports = Renderable;
 
@@ -11,27 +11,30 @@ function Renderable(entity, type, options) {
     } else if (type === "if") {
         renderOptions.set(entity, options);
         ifRenders.push(entity);
-    } else if (type === "once") renderEntity(entity, options);
+    } else if (type === "once") renderEntity(onceArtist, entity, options);
     return entity;
 }
 
 var alwaysRenders = [],
     ifRenders = [],
     renderOptions = Dictionary(),
-    artist = Artist();
+    onceArtist = Artist(),
+    frequentlyArtist = Artist();
 
 function renderFrame() {
+    frequentlyArtist.clear();
+
     _.each(alwaysRenders, function renderAlwaysEntity(entity) {
-        renderEntity(entity, renderOptions.get(entity));
+        renderEntity(frequentlyArtist, entity, renderOptions.get(entity));
     });
 
     _.each(ifRenders, function renderAlwaysEntity(entity) {
         var options = renderOptions.get(entity);
-        if (options.predicate && options.predicate(entity, options)) renderEntity(entity, options);
+        if (options.predicate && options.predicate(entity, options)) renderEntity(frequentlyArtist, entity, options);
     });
 }
 
-function renderEntity(entity, options) {
+function renderEntity(artist, entity, options) {
     if (options && options.image) artist.setImage(_.result(options, "image"), entity);
     if (options && options.color) artist.setColor(
         _.result(options.color, "r"),
@@ -53,6 +56,7 @@ function renderStep(timestamp) {
     if (!lastRender) lastRender = timestamp;
 
     if (timestamp - lastRender >= milliPerFrame) {
+        lastRender = timestamp;
         renderFrame();
     }
 

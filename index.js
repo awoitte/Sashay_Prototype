@@ -5,6 +5,11 @@ var Map = require("./map"),
     enemyFactory = require("./Factories/enemyFactory"),
     Renderable = require("./Behaviours/renderable");
 
+$(document.body).css({
+    "margin": 0,
+    "padding": 0
+});
+
 var mapW = 67,
     mapH = 31,
     map = Map(mapW, mapH),
@@ -17,7 +22,7 @@ map.eachTile(function setTileToRandomColor(tile) {
 });
 
 function randomTileOffset () {
-    return Math.round(Math.random() * 3);
+    return Math.round(Math.random() * 2) + 1;
 }
 
 function makeARandomWall() {

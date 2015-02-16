@@ -41,7 +41,7 @@ function checkForCollisions (entity, entitiesCallback, vector) {
 function defaultCollideCallback (entity) {
     //console.log("Collision involving " + JSON.stringify(entity));
 }
-},{"underscore":21}],2:[function(require,module,exports){
+},{"underscore":20}],2:[function(require,module,exports){
 var _ = require("underscore"),
     unary = require("../Helpers/unary");
 
@@ -73,7 +73,7 @@ function adjustHealth (health, amount) {
     if((health + amount) < 0) return 0;
     return health + amount;
 }
-},{"../Helpers/unary":14,"underscore":21}],3:[function(require,module,exports){
+},{"../Helpers/unary":13,"underscore":20}],3:[function(require,module,exports){
 module.exports = Moveable;
 
 function Moveable (entity) {
@@ -88,7 +88,7 @@ function moveEntity (entity, vector) {
 },{}],4:[function(require,module,exports){
 var _ = require("underscore"),
     Dictionary = require("../Helpers/dictionary"),
-    Artist = require("../DOMArtist");
+    Artist = require("../CanvasArtist");
 
 module.exports = Renderable;
 
@@ -99,27 +99,30 @@ function Renderable(entity, type, options) {
     } else if (type === "if") {
         renderOptions.set(entity, options);
         ifRenders.push(entity);
-    } else if (type === "once") renderEntity(entity, options);
+    } else if (type === "once") renderEntity(onceArtist, entity, options);
     return entity;
 }
 
 var alwaysRenders = [],
     ifRenders = [],
     renderOptions = Dictionary(),
-    artist = Artist();
+    onceArtist = Artist(),
+    frequentlyArtist = Artist();
 
 function renderFrame() {
+    frequentlyArtist.clear();
+
     _.each(alwaysRenders, function renderAlwaysEntity(entity) {
-        renderEntity(entity, renderOptions.get(entity));
+        renderEntity(frequentlyArtist, entity, renderOptions.get(entity));
     });
 
     _.each(ifRenders, function renderAlwaysEntity(entity) {
         var options = renderOptions.get(entity);
-        if (options.predicate && options.predicate(entity, options)) renderEntity(entity, options);
+        if (options.predicate && options.predicate(entity, options)) renderEntity(frequentlyArtist, entity, options);
     });
 }
 
-function renderEntity(entity, options) {
+function renderEntity(artist, entity, options) {
     if (options && options.image) artist.setImage(_.result(options, "image"), entity);
     if (options && options.color) artist.setColor(
         _.result(options.color, "r"),
@@ -141,6 +144,7 @@ function renderStep(timestamp) {
     if (!lastRender) lastRender = timestamp;
 
     if (timestamp - lastRender >= milliPerFrame) {
+        lastRender = timestamp;
         renderFrame();
     }
 
@@ -148,83 +152,91 @@ function renderStep(timestamp) {
 }
 
 window.requestAnimationFrame(renderStep);
-},{"../DOMArtist":5,"../Helpers/dictionary":11,"underscore":21}],5:[function(require,module,exports){
+},{"../CanvasArtist":5,"../Helpers/dictionary":10,"underscore":20}],5:[function(require,module,exports){
 var $ = require("jquery-browserify"),
     Dictionary = require("./Helpers/dictionary");
 
-module.exports = DOMArtist;
+module.exports = CanvasArtist;
+
+var globalAssets = Dictionary();
 
 var artistProto = {
     setColor: function setColor(r, g, b, a, entity) {
         entity.color = "rgba(" + ([r, g, b, a].join(",")) + ")";
         return this;
     },
-    setImage: function setImage (url, entity, offsetX, offsetY) {
-        entity.img = url;
-        if(offsetX && offsetY) entity.bgOffset = {
-            x: unitsToPixels(offsetX) + offsetX,
-            y: unitsToPixels(offsetY) + offsetY
-        };
+    setImage: function setImage(url, entity) {
+        var image = globalAssets.get(url);
+        if (!image) {
+            image = createImage(url);
+            globalAssets.set(url, image);
+        }
+        entity.img = image;
         return this;
     }
 };
 
-function DOMArtist($el) {
-    var artist = Object.create(artistProto),
-        entityDictionary = Dictionary();
+function CanvasArtist($el) {
+    var artist = Object.create(artistProto);
 
-    if ($el === void 0 || !$el.length)($el = $("<div>"), $el.appendTo(document.body));
+    if ($el === void 0 || !$el.length)($el = createEl(), $el.appendTo(document.body));
 
-    artist.drawEntity = drawEntity.bind(artist, entityDictionary, $el);
+    artist.drawEntity = drawEntity.bind(artist, $el);
+    artist.clear = clear.bind(artist, $el);
 
     return artist;
 }
 
-function drawEntity(entityDictionary, $el, entity) {
-    if (!entityDictionary || !$el || !entity) return this;
+function clear ($el) {
+    var context = getContext($el);
+    context.clearRect(0, 0, $el.width(), $el.height());
+}
 
-    getElementForEntity(entityDictionary, entity).width(unitsToPixels(entity.w))
-        .height(unitsToPixels(entity.h))
-        .offset({
-            top: unitsToPixels(entity.y),
-            left: unitsToPixels(entity.x)
-        })
-        .css({
-            position: "absolute",
-            "background-color": entity.color || "black",
-            "background-image": entity.img ? "url(" + entity.img + ")" : "none",
-            "background-position": entity.bgOffset ? bgOffset.x + "px " + bgOffset.y + "px" : "center"
-        })
-        .appendTo($el);
+function drawEntity($el, entity) {
+    if (!$el || !entity) throw "drawEntity arguments missing";
+
+    var context = getContext($el);
+
+    if (entity.color) {
+        context.fillStyle = entity.color;
+        context.fillRect(unitsToPixels(entity.x), unitsToPixels(entity.y), unitsToPixels(entity.w), unitsToPixels(entity.h));
+    }
+
+    if (entity.img) context.drawImage(entity.img, unitsToPixels(entity.x), unitsToPixels(entity.y), unitsToPixels(entity.w), unitsToPixels(entity.h));
 
     return this;
 }
 
-function createEl() {
-    return $("<div>");
+function getContext($el) {
+    var drawingCanvas = $el[0];
+    if (drawingCanvas.getContext) {
+        return drawingCanvas.getContext('2d');
+    } else {
+        throw "Canvas tag must be supported for the CanvasArtist";
+    }
 }
 
-function getElementForEntity(entityDictionary, entity) {
-    if (entity.id !== null && entity.id !== void 0) {
-        var currentEl = entityDictionary.get(entity);
-        if (currentEl) return currentEl;
-        else {
-            var newEl = createEl();
-            entityDictionary.set(entity, newEl);
-            return newEl;
-        }
-    }
-    return createEl();
+function createEl() {
+    var $el = $("<canvas width='" + $(window).width() + "' height='" + $(window).height() + "'>");
+    $el.css({
+        position: "absolute"
+    });
+    return $el;
+}
+
+function createImage(url) {
+    var img = new Image();
+    img.src = url;
+    return img;
 }
 
 function unitsToPixels(unit) {
     return unit * 20;
 }
-},{"./Helpers/dictionary":11,"jquery-browserify":20}],6:[function(require,module,exports){
+},{"./Helpers/dictionary":10,"jquery-browserify":19}],6:[function(require,module,exports){
 var _ = require("underscore"),
     Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
-    changedSinceLastRenderPredicate = require("../Helpers/changedSinceLastRenderPredicate"),
     Moveable = require("../Behaviours/moveable"),
     Collidable = require("../Behaviours/collidable"),
     Healthable = require("../Behaviours/healthable"),
@@ -239,14 +251,12 @@ function Dude(x, y, keyDowns, map) {
     Moveable(dude);
     Collidable(dude, handleCollision.bind(dude));
     Healthable(dude, 5);
-    Renderable(dude, "if", {
-        image: defaultImg.bind(dude, dude),
-        predicate: changedSinceLastRenderPredicate
+    Renderable(dude, "always", {
+        image: defaultImg.bind(dude, dude)
     });
 
     dude.id = uniqueId();
 
-    dude.changedSinceLastRender = true;
 
     dude.moveBasedOnInputVector = moveBasedOnInputVector.bind(dude, dude);
 
@@ -272,10 +282,6 @@ function handleCollision (collidingWith) {
         var dude = this;
         dude.damage(1);
         dude.lastHitTime = Date.now();
-        dude.changedSinceLastRender = true;
-        setTimeout(function resetImage () {
-            dude.changedSinceLastRender = true;
-        }, 250);
     }
 }
 
@@ -305,15 +311,13 @@ function moveBasedOnInputVector(dude, vector) {
         collisions = dude.checkForCollisions(destination);
     if (collisions.length === 0 && dude.isWithinMap(destination)) {
         dude.move(vector);
-        dude.changedSinceLastRender = true;
     }
 }
-},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/changedSinceLastRenderPredicate":10,"../Helpers/uniqueId":15,"../entity":16,"underscore":21}],7:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/uniqueId":14,"../entity":15,"underscore":20}],7:[function(require,module,exports){
 var Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
     unary = require("../Helpers/unary"),
     reverseVector = require("../Helpers/reverseVector"),
-    changedSinceLastRenderPredicate = require("../Helpers/changedSinceLastRenderPredicate"),
     Moveable = require("../Behaviours/moveable"),
     Collidable = require("../Behaviours/collidable"),
     Healthable = require("../Behaviours/healthable"),
@@ -326,13 +330,11 @@ function Enemy(map) {
     Moveable(enemy);
     Collidable(enemy);
     Healthable(enemy);
-    Renderable(enemy, "if", {
+    Renderable(enemy, "always", {
         image: "img/enemy.png",
-        predicate: changedSinceLastRenderPredicate
     });
 
     enemy.id = uniqueId();
-    enemy.changedSinceLastRender = true;
 
     enemy.moveVector = {
         x: Math.round((Math.random() * 2) - 1),
@@ -366,11 +368,10 @@ function moveBasedOnInputVector(enemy, vector) {
 
     if (collisions.length === 0 && enemy.isWithinMap(destination)) {
         enemy.move(vector);
-        enemy.changedSinceLastRender = true;
         return true;
     } else return false;
 }
-},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/changedSinceLastRenderPredicate":10,"../Helpers/reverseVector":12,"../Helpers/unary":14,"../Helpers/uniqueId":15,"../entity":16}],8:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/reverseVector":11,"../Helpers/unary":13,"../Helpers/uniqueId":14,"../entity":15}],8:[function(require,module,exports){
 var Entity = require("../entity"),
     Collidable = require("../Behaviours/collidable"),
     Renderable = require("../Behaviours/renderable");
@@ -380,22 +381,21 @@ module.exports = Wall;
 function Wall(x, y, w, h) {
     var wall = Entity(x, y, w, h);
     Collidable(wall);
-    Renderable(wall, "once");
+    Renderable(wall, "once", {
+        color: {
+            r:0,
+            g:0,
+            b:0,
+            a:1
+        }
+    });
     return wall;
 }
-},{"../Behaviours/collidable":1,"../Behaviours/renderable":4,"../entity":16}],9:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/renderable":4,"../entity":15}],9:[function(require,module,exports){
 module.exports = function argsToArray(args) {
     return Array.prototype.splice.call(args, 0);
 }
 },{}],10:[function(require,module,exports){
-module.exports = function enemyRenderPredicate(entity, options) {
-    if (entity.changedSinceLastRender) {
-        entity.changedSinceLastRender = false;
-        return true;
-    }
-    else return false;
-};
-},{}],11:[function(require,module,exports){
 var _ = require("underscore");
 
 module.exports = Dictionary;
@@ -436,14 +436,14 @@ function each (maps) {
         };
     });
 }
-},{"underscore":21}],12:[function(require,module,exports){
+},{"underscore":20}],11:[function(require,module,exports){
 module.exports = function reverseVector (vector) {
     return {
         x: -1 * vector.x,
         y: -1 * vector.y
     };
 };
-},{}],13:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 module.exports = function throttle (func, time) {
     var lastDateCalled;
 
@@ -456,17 +456,17 @@ module.exports = function throttle (func, time) {
         return null;
     };
 };
-},{}],14:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 module.exports = function unary (arg) {
     return arg;
 };
-},{}],15:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 module.exports = function uniqueId () {
     return lastId++;
 };
 
 var lastId = 1;
-},{}],16:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 module.exports = Entity;
 
 var entityProto = {
@@ -489,7 +489,7 @@ function Entity(x, y, w, h) {
     entity.h = h;
     return entity;
 }
-},{}],17:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 var argsToArray = require("./Helpers/argsToArray"),
     throttle = require("./Helpers/throttle");
 
@@ -527,13 +527,18 @@ function pushToSubscriptions(subscriptions) {
         callback.apply(null, args);
     });
 }
-},{"./Helpers/argsToArray":9,"./Helpers/throttle":13}],18:[function(require,module,exports){
+},{"./Helpers/argsToArray":9,"./Helpers/throttle":12}],17:[function(require,module,exports){
 var Map = require("./map"),
     EventList = require("./eventList"),
     dudeFactory = require("./Factories/dudeFactory"),
     wallFactory = require("./Factories/wallFactory"),
     enemyFactory = require("./Factories/enemyFactory"),
     Renderable = require("./Behaviours/renderable");
+
+$(document.body).css({
+    "margin": 0,
+    "padding": 0
+});
 
 var mapW = 67,
     mapH = 31,
@@ -547,7 +552,7 @@ map.eachTile(function setTileToRandomColor(tile) {
 });
 
 function randomTileOffset () {
-    return Math.round(Math.random() * 3);
+    return Math.round(Math.random() * 2) + 1;
 }
 
 function makeARandomWall() {
@@ -570,7 +575,7 @@ var keyDowns = EventList(),
     dude = dudeFactory(0, 0, keyDowns, map);
 
 $(document.body).keydown(keyDowns.push);
-},{"./Behaviours/renderable":4,"./Factories/dudeFactory":6,"./Factories/enemyFactory":7,"./Factories/wallFactory":8,"./eventList":17,"./map":19}],19:[function(require,module,exports){
+},{"./Behaviours/renderable":4,"./Factories/dudeFactory":6,"./Factories/enemyFactory":7,"./Factories/wallFactory":8,"./eventList":16,"./map":18}],18:[function(require,module,exports){
 var Entity = require("./entity"),
     unary = require("./Helpers/unary");
 
@@ -610,7 +615,7 @@ function eachTile(tiles, callback) {
     tiles.forEach(callback);
     return this;
 }
-},{"./Helpers/unary":14,"./entity":16}],20:[function(require,module,exports){
+},{"./Helpers/unary":13,"./entity":15}],19:[function(require,module,exports){
 // Uses Node, AMD or browser globals to create a module.
 
 // If you want something that will work in other stricter CommonJS environments,
@@ -9944,7 +9949,7 @@ return jQuery;
 
 })( window ); }));
 
-},{}],21:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 //     Underscore.js 1.7.0
 //     http://underscorejs.org
 //     (c) 2009-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -11361,4 +11366,4 @@ return jQuery;
   }
 }.call(this));
 
-},{}]},{},[18]);
+},{}]},{},[17]);

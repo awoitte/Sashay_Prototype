@@ -2,7 +2,6 @@ var Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
     unary = require("../Helpers/unary"),
     reverseVector = require("../Helpers/reverseVector"),
-    changedSinceLastRenderPredicate = require("../Helpers/changedSinceLastRenderPredicate"),
     Moveable = require("../Behaviours/moveable"),
     Collidable = require("../Behaviours/collidable"),
     Healthable = require("../Behaviours/healthable"),
@@ -15,13 +14,11 @@ function Enemy(map) {
     Moveable(enemy);
     Collidable(enemy);
     Healthable(enemy);
-    Renderable(enemy, "if", {
+    Renderable(enemy, "always", {
         image: "img/enemy.png",
-        predicate: changedSinceLastRenderPredicate
     });
 
     enemy.id = uniqueId();
-    enemy.changedSinceLastRender = true;
 
     enemy.moveVector = {
         x: Math.round((Math.random() * 2) - 1),
@@ -55,7 +52,6 @@ function moveBasedOnInputVector(enemy, vector) {
 
     if (collisions.length === 0 && enemy.isWithinMap(destination)) {
         enemy.move(vector);
-        enemy.changedSinceLastRender = true;
         return true;
     } else return false;
 }

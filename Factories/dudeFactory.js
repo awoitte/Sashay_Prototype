@@ -1,7 +1,6 @@
 var _ = require("underscore"),
     Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
-    changedSinceLastRenderPredicate = require("../Helpers/changedSinceLastRenderPredicate"),
     Moveable = require("../Behaviours/moveable"),
     Collidable = require("../Behaviours/collidable"),
     Healthable = require("../Behaviours/healthable"),
@@ -16,14 +15,12 @@ function Dude(x, y, keyDowns, map) {
     Moveable(dude);
     Collidable(dude, handleCollision.bind(dude));
     Healthable(dude, 5);
-    Renderable(dude, "if", {
-        image: defaultImg.bind(dude, dude),
-        predicate: changedSinceLastRenderPredicate
+    Renderable(dude, "always", {
+        image: defaultImg.bind(dude, dude)
     });
 
     dude.id = uniqueId();
 
-    dude.changedSinceLastRender = true;
 
     dude.moveBasedOnInputVector = moveBasedOnInputVector.bind(dude, dude);
 
@@ -49,10 +46,6 @@ function handleCollision (collidingWith) {
         var dude = this;
         dude.damage(1);
         dude.lastHitTime = Date.now();
-        dude.changedSinceLastRender = true;
-        setTimeout(function resetImage () {
-            dude.changedSinceLastRender = true;
-        }, 250);
     }
 }
 
@@ -82,6 +75,5 @@ function moveBasedOnInputVector(dude, vector) {
         collisions = dude.checkForCollisions(destination);
     if (collisions.length === 0 && dude.isWithinMap(destination)) {
         dude.move(vector);
-        dude.changedSinceLastRender = true;
     }
 }
