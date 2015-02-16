@@ -1,26 +1,29 @@
 var _ = require("underscore"),
     Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
+    changedSinceLastRenderPredicate = require("../Helpers/changedSinceLastRenderPredicate"),
     Moveable = require("../Behaviours/moveable"),
     Collidable = require("../Behaviours/collidable"),
-    Healthable = require("../Behaviours/healthable");
+    Healthable = require("../Behaviours/healthable"),
+    Renderable = require("../Behaviours/renderable");
 
 module.exports = Dude;
 
-function Dude(x, y, keyDowns, dudeArtist, map) {
+function Dude(x, y, keyDowns, map) {
     var dude = Entity(x, y, 1, 1);
 
     //behaviours
     Moveable(dude);
-    Collidable(dude, handleCollision.bind(dude, dudeArtist));
+    Collidable(dude, handleCollision.bind(dude));
     Healthable(dude, 5);
+    Renderable(dude, "if", {
+        image: defaultImg.bind(dude, dude),
+        predicate: changedSinceLastRenderPredicate
+    });
 
     dude.id = uniqueId();
-    dude.update = update.bind(dude, dude, dudeArtist);
-    dude.defaultImg = defaultImg.bind(dude, dude);
 
-    dudeArtist.setColor(0, 255, 0, 1, dude).setImage(_.result(dude, "defaultImg"), dude);
-    dude.update();
+    dude.changedSinceLastRender = true;
 
     dude.moveBasedOnInputVector = moveBasedOnInputVector.bind(dude, dude);
 
@@ -37,23 +40,18 @@ function defaultImg (dude) {
     else return "img/dude.png";
 }
 
-function update (dude, dudeArtist) {
-    dudeArtist.setImage(_.result(dude, "defaultImg"), dude);
-    dudeArtist.drawEntity(dude);
-}
-
 function isWithinMap(dude, map, destination) {
     return destination.x >= 0 && destination.y >= 0 && destination.x < map.getW() && destination.y < map.getH();
 }
 
-function handleCollision (dudeArtist, collidingWith) {
+function handleCollision (collidingWith) {
     if (_.result(collidingWith, "isEnemy")) {
         var dude = this;
         dude.damage(1);
         dude.lastHitTime = Date.now();
-        dude.update();
+        dude.changedSinceLastRender = true;
         setTimeout(function resetImage () {
-            dude.update();
+            dude.changedSinceLastRender = true;
         }, 250);
     }
 }
@@ -76,12 +74,14 @@ function handleKeyDown(dude, e) {
             x: 1,
             y: 0
         });
-        dude.update();
     }
 }
 
 function moveBasedOnInputVector(dude, vector) {
     var destination = dude.convertRelativeVectorToGlobal(vector),
         collisions = dude.checkForCollisions(destination);
-    if (collisions.length === 0 && dude.isWithinMap(destination)) dude.move(vector);
+    if (collisions.length === 0 && dude.isWithinMap(destination)) {
+        dude.move(vector);
+        dude.changedSinceLastRender = true;
+    }
 }

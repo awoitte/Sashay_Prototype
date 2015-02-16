@@ -41,7 +41,7 @@ function checkForCollisions (entity, entitiesCallback, vector) {
 function defaultCollideCallback (entity) {
     //console.log("Collision involving " + JSON.stringify(entity));
 }
-},{"underscore":19}],2:[function(require,module,exports){
+},{"underscore":21}],2:[function(require,module,exports){
 var _ = require("underscore"),
     unary = require("../Helpers/unary");
 
@@ -73,7 +73,7 @@ function adjustHealth (health, amount) {
     if((health + amount) < 0) return 0;
     return health + amount;
 }
-},{"../Helpers/unary":12,"underscore":19}],3:[function(require,module,exports){
+},{"../Helpers/unary":14,"underscore":21}],3:[function(require,module,exports){
 module.exports = Moveable;
 
 function Moveable (entity) {
@@ -86,6 +86,69 @@ function moveEntity (entity, vector) {
     entity.y += vector.y;
 }
 },{}],4:[function(require,module,exports){
+var _ = require("underscore"),
+    Dictionary = require("../Helpers/dictionary"),
+    Artist = require("../DOMArtist");
+
+module.exports = Renderable;
+
+function Renderable(entity, type, options) {
+    if (type === "always") {
+        renderOptions.set(entity, options);
+        alwaysRenders.push(entity);
+    } else if (type === "if") {
+        renderOptions.set(entity, options);
+        ifRenders.push(entity);
+    } else if (type === "once") renderEntity(entity, options);
+    return entity;
+}
+
+var alwaysRenders = [],
+    ifRenders = [],
+    renderOptions = Dictionary(),
+    artist = Artist();
+
+function renderFrame() {
+    _.each(alwaysRenders, function renderAlwaysEntity(entity) {
+        renderEntity(entity, renderOptions.get(entity));
+    });
+
+    _.each(ifRenders, function renderAlwaysEntity(entity) {
+        var options = renderOptions.get(entity);
+        if (options.predicate && options.predicate(entity, options)) renderEntity(entity, options);
+    });
+}
+
+function renderEntity(entity, options) {
+    if (options && options.image) artist.setImage(_.result(options, "image"), entity);
+    if (options && options.color) artist.setColor(
+        _.result(options.color, "r"),
+        _.result(options.color, "g"),
+        _.result(options.color, "b"),
+        _.result(options.color, "a"),
+        entity);
+    artist.drawEntity(entity);
+}
+
+////////////////
+//Render Loop //
+////////////////
+
+var lastRender = null,
+    milliPerFrame = 41.6; // ~24 fps
+
+function renderStep(timestamp) {
+    if (!lastRender) lastRender = timestamp;
+
+    if (timestamp - lastRender >= milliPerFrame) {
+        renderFrame();
+    }
+
+    window.requestAnimationFrame(renderStep);
+}
+
+window.requestAnimationFrame(renderStep);
+},{"../DOMArtist":5,"../Helpers/dictionary":11,"underscore":21}],5:[function(require,module,exports){
 var $ = require("jquery-browserify"),
     Dictionary = require("./Helpers/dictionary");
 
@@ -157,30 +220,33 @@ function getElementForEntity(entityDictionary, entity) {
 function unitsToPixels(unit) {
     return unit * 20;
 }
-},{"./Helpers/dictionary":9,"jquery-browserify":18}],5:[function(require,module,exports){
+},{"./Helpers/dictionary":11,"jquery-browserify":20}],6:[function(require,module,exports){
 var _ = require("underscore"),
     Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
+    changedSinceLastRenderPredicate = require("../Helpers/changedSinceLastRenderPredicate"),
     Moveable = require("../Behaviours/moveable"),
     Collidable = require("../Behaviours/collidable"),
-    Healthable = require("../Behaviours/healthable");
+    Healthable = require("../Behaviours/healthable"),
+    Renderable = require("../Behaviours/renderable");
 
 module.exports = Dude;
 
-function Dude(x, y, keyDowns, dudeArtist, map) {
+function Dude(x, y, keyDowns, map) {
     var dude = Entity(x, y, 1, 1);
 
     //behaviours
     Moveable(dude);
-    Collidable(dude, handleCollision.bind(dude, dudeArtist));
+    Collidable(dude, handleCollision.bind(dude));
     Healthable(dude, 5);
+    Renderable(dude, "if", {
+        image: defaultImg.bind(dude, dude),
+        predicate: changedSinceLastRenderPredicate
+    });
 
     dude.id = uniqueId();
-    dude.update = update.bind(dude, dude, dudeArtist);
-    dude.defaultImg = defaultImg.bind(dude, dude);
 
-    dudeArtist.setColor(0, 255, 0, 1, dude).setImage(_.result(dude, "defaultImg"), dude);
-    dude.update();
+    dude.changedSinceLastRender = true;
 
     dude.moveBasedOnInputVector = moveBasedOnInputVector.bind(dude, dude);
 
@@ -197,23 +263,18 @@ function defaultImg (dude) {
     else return "img/dude.png";
 }
 
-function update (dude, dudeArtist) {
-    dudeArtist.setImage(_.result(dude, "defaultImg"), dude);
-    dudeArtist.drawEntity(dude);
-}
-
 function isWithinMap(dude, map, destination) {
     return destination.x >= 0 && destination.y >= 0 && destination.x < map.getW() && destination.y < map.getH();
 }
 
-function handleCollision (dudeArtist, collidingWith) {
+function handleCollision (collidingWith) {
     if (_.result(collidingWith, "isEnemy")) {
         var dude = this;
         dude.damage(1);
         dude.lastHitTime = Date.now();
-        dude.update();
+        dude.changedSinceLastRender = true;
         setTimeout(function resetImage () {
-            dude.update();
+            dude.changedSinceLastRender = true;
         }, 250);
     }
 }
@@ -236,36 +297,42 @@ function handleKeyDown(dude, e) {
             x: 1,
             y: 0
         });
-        dude.update();
     }
 }
 
 function moveBasedOnInputVector(dude, vector) {
     var destination = dude.convertRelativeVectorToGlobal(vector),
         collisions = dude.checkForCollisions(destination);
-    if (collisions.length === 0 && dude.isWithinMap(destination)) dude.move(vector);
+    if (collisions.length === 0 && dude.isWithinMap(destination)) {
+        dude.move(vector);
+        dude.changedSinceLastRender = true;
+    }
 }
-},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Helpers/uniqueId":13,"../entity":14,"underscore":19}],6:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/changedSinceLastRenderPredicate":10,"../Helpers/uniqueId":15,"../entity":16,"underscore":21}],7:[function(require,module,exports){
 var Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
     unary = require("../Helpers/unary"),
     reverseVector = require("../Helpers/reverseVector"),
+    changedSinceLastRenderPredicate = require("../Helpers/changedSinceLastRenderPredicate"),
     Moveable = require("../Behaviours/moveable"),
     Collidable = require("../Behaviours/collidable"),
-    Healthable = require("../Behaviours/healthable");
+    Healthable = require("../Behaviours/healthable"),
+    Renderable = require("../Behaviours/renderable");
 
 module.exports = Enemy;
 
-function Enemy(enemyArtist, map) {
+function Enemy(map) {
     var enemy = Entity(Math.round(Math.random() * map.getW()) - 1, Math.round(Math.random() * map.getH()) - 1, 1, 1);
     Moveable(enemy);
     Collidable(enemy);
     Healthable(enemy);
+    Renderable(enemy, "if", {
+        image: "img/enemy.png",
+        predicate: changedSinceLastRenderPredicate
+    });
 
     enemy.id = uniqueId();
-    enemy.update = enemyArtist.drawEntity.bind(enemyArtist, enemy);
-    enemyArtist.setColor(255, 0, 0, 1, enemy).setImage("img/enemy.png", enemy);
-    enemy.update();
+    enemy.changedSinceLastRender = true;
 
     enemy.moveVector = {
         x: Math.round((Math.random() * 2) - 1),
@@ -299,28 +366,36 @@ function moveBasedOnInputVector(enemy, vector) {
 
     if (collisions.length === 0 && enemy.isWithinMap(destination)) {
         enemy.move(vector);
-        enemy.update();
+        enemy.changedSinceLastRender = true;
         return true;
     } else return false;
 }
-},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Helpers/reverseVector":10,"../Helpers/unary":12,"../Helpers/uniqueId":13,"../entity":14}],7:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/changedSinceLastRenderPredicate":10,"../Helpers/reverseVector":12,"../Helpers/unary":14,"../Helpers/uniqueId":15,"../entity":16}],8:[function(require,module,exports){
 var Entity = require("../entity"),
-    Collidable = require("../Behaviours/collidable");
+    Collidable = require("../Behaviours/collidable"),
+    Renderable = require("../Behaviours/renderable");
 
 module.exports = Wall;
 
-function Wall(x, y, w, h, artist) {
+function Wall(x, y, w, h) {
     var wall = Entity(x, y, w, h);
-    artist.setColor(0, 0, 0, 1, wall);
-    artist.drawEntity(wall);
     Collidable(wall);
+    Renderable(wall, "once");
     return wall;
 }
-},{"../Behaviours/collidable":1,"../entity":14}],8:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/renderable":4,"../entity":16}],9:[function(require,module,exports){
 module.exports = function argsToArray(args) {
     return Array.prototype.splice.call(args, 0);
 }
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
+module.exports = function enemyRenderPredicate(entity, options) {
+    if (entity.changedSinceLastRender) {
+        entity.changedSinceLastRender = false;
+        return true;
+    }
+    else return false;
+};
+},{}],11:[function(require,module,exports){
 var _ = require("underscore");
 
 module.exports = Dictionary;
@@ -331,6 +406,7 @@ function Dictionary() {
 
     dictionary.get = get.bind(dictionary, maps);
     dictionary.set = set.bind(dictionary, maps);
+    dictionary.each = each.bind(dictionary, maps);
 
     return dictionary;
 }
@@ -351,14 +427,23 @@ function set(maps, key, value) {
     });
     return this;
 }
-},{"underscore":19}],10:[function(require,module,exports){
+
+function each (maps) {
+    return _.map(maps, function shallowCloneMap (map) {
+        return {
+            key: map.key,
+            value: map.value
+        };
+    });
+}
+},{"underscore":21}],12:[function(require,module,exports){
 module.exports = function reverseVector (vector) {
     return {
         x: -1 * vector.x,
         y: -1 * vector.y
     };
 };
-},{}],11:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 module.exports = function throttle (func, time) {
     var lastDateCalled;
 
@@ -371,17 +456,17 @@ module.exports = function throttle (func, time) {
         return null;
     };
 };
-},{}],12:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 module.exports = function unary (arg) {
     return arg;
 };
-},{}],13:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 module.exports = function uniqueId () {
     return lastId++;
 };
 
 var lastId = 1;
-},{}],14:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 module.exports = Entity;
 
 var entityProto = {
@@ -404,7 +489,7 @@ function Entity(x, y, w, h) {
     entity.h = h;
     return entity;
 }
-},{}],15:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var argsToArray = require("./Helpers/argsToArray"),
     throttle = require("./Helpers/throttle");
 
@@ -442,32 +527,28 @@ function pushToSubscriptions(subscriptions) {
         callback.apply(null, args);
     });
 }
-},{"./Helpers/argsToArray":8,"./Helpers/throttle":11}],16:[function(require,module,exports){
+},{"./Helpers/argsToArray":9,"./Helpers/throttle":13}],18:[function(require,module,exports){
 var Map = require("./map"),
-    Artist = require("./DOMArtist"),
     EventList = require("./eventList"),
     dudeFactory = require("./Factories/dudeFactory"),
     wallFactory = require("./Factories/wallFactory"),
-    enemyFactory = require("./Factories/enemyFactory");
+    enemyFactory = require("./Factories/enemyFactory"),
+    Renderable = require("./Behaviours/renderable");
 
 var mapW = 67,
     mapH = 31,
     map = Map(mapW, mapH),
-    pixelBugdetPerWall = 20,
-    artist = Artist(),
-    movingEntityArtist = Artist();
+    pixelBugdetPerWall = 20;
 
-function randomColorInt() {
-    return Math.round(Math.random() * 255);
-}
+map.eachTile(function setTileToRandomColor(tile) {
+    Renderable(tile, "once", {
+        image: "img/tile" + randomTileOffset() + ".png"
+    });
+});
 
 function randomTileOffset () {
     return Math.round(Math.random() * 3);
 }
-
-map.eachTile(function setTileToRandomColor(tile) {
-    artist.setImage("img/tile" + randomTileOffset() + ".png", tile);
-}).eachTile(artist.drawEntity);
 
 function makeARandomWall() {
     var x = Math.round(Math.random() * mapW),
@@ -479,17 +560,17 @@ function makeARandomWall() {
 
     if(overMapWBy > 0) x -= overMapWBy;
     if(overMapHBy > 0) y -= overMapHBy;
-    wallFactory(x,y,w,h, artist);
+    wallFactory(x,y,w,h);
 }
 
 for (var i = 0; i < 20; i++) makeARandomWall();
-for (var i = 0; i < 50; i++) enemyFactory(movingEntityArtist, map);
+for (var i = 0; i < 50; i++) enemyFactory(map);
 
 var keyDowns = EventList(),
-    dude = dudeFactory(0, 0, keyDowns, movingEntityArtist, map);
+    dude = dudeFactory(0, 0, keyDowns, map);
 
 $(document.body).keydown(keyDowns.push);
-},{"./DOMArtist":4,"./Factories/dudeFactory":5,"./Factories/enemyFactory":6,"./Factories/wallFactory":7,"./eventList":15,"./map":17}],17:[function(require,module,exports){
+},{"./Behaviours/renderable":4,"./Factories/dudeFactory":6,"./Factories/enemyFactory":7,"./Factories/wallFactory":8,"./eventList":17,"./map":19}],19:[function(require,module,exports){
 var Entity = require("./entity"),
     unary = require("./Helpers/unary");
 
@@ -529,7 +610,7 @@ function eachTile(tiles, callback) {
     tiles.forEach(callback);
     return this;
 }
-},{"./Helpers/unary":12,"./entity":14}],18:[function(require,module,exports){
+},{"./Helpers/unary":14,"./entity":16}],20:[function(require,module,exports){
 // Uses Node, AMD or browser globals to create a module.
 
 // If you want something that will work in other stricter CommonJS environments,
@@ -9863,7 +9944,7 @@ return jQuery;
 
 })( window ); }));
 
-},{}],19:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 //     Underscore.js 1.7.0
 //     http://underscorejs.org
 //     (c) 2009-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -11280,4 +11361,4 @@ return jQuery;
   }
 }.call(this));
 
-},{}]},{},[16]);
+},{}]},{},[18]);

@@ -1,28 +1,24 @@
 var Map = require("./map"),
-    Artist = require("./DOMArtist"),
     EventList = require("./eventList"),
     dudeFactory = require("./Factories/dudeFactory"),
     wallFactory = require("./Factories/wallFactory"),
-    enemyFactory = require("./Factories/enemyFactory");
+    enemyFactory = require("./Factories/enemyFactory"),
+    Renderable = require("./Behaviours/renderable");
 
 var mapW = 67,
     mapH = 31,
     map = Map(mapW, mapH),
-    pixelBugdetPerWall = 20,
-    artist = Artist(),
-    movingEntityArtist = Artist();
+    pixelBugdetPerWall = 20;
 
-function randomColorInt() {
-    return Math.round(Math.random() * 255);
-}
+map.eachTile(function setTileToRandomColor(tile) {
+    Renderable(tile, "once", {
+        image: "img/tile" + randomTileOffset() + ".png"
+    });
+});
 
 function randomTileOffset () {
     return Math.round(Math.random() * 3);
 }
-
-map.eachTile(function setTileToRandomColor(tile) {
-    artist.setImage("img/tile" + randomTileOffset() + ".png", tile);
-}).eachTile(artist.drawEntity);
 
 function makeARandomWall() {
     var x = Math.round(Math.random() * mapW),
@@ -34,13 +30,13 @@ function makeARandomWall() {
 
     if(overMapWBy > 0) x -= overMapWBy;
     if(overMapHBy > 0) y -= overMapHBy;
-    wallFactory(x,y,w,h, artist);
+    wallFactory(x,y,w,h);
 }
 
 for (var i = 0; i < 20; i++) makeARandomWall();
-for (var i = 0; i < 50; i++) enemyFactory(movingEntityArtist, map);
+for (var i = 0; i < 50; i++) enemyFactory(map);
 
 var keyDowns = EventList(),
-    dude = dudeFactory(0, 0, keyDowns, movingEntityArtist, map);
+    dude = dudeFactory(0, 0, keyDowns, map);
 
 $(document.body).keydown(keyDowns.push);

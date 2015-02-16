@@ -1,12 +1,12 @@
 var Entity = require("../entity"),
-    Collidable = require("../Behaviours/collidable");
+    Collidable = require("../Behaviours/collidable"),
+    Renderable = require("../Behaviours/renderable");
 
 module.exports = Wall;
 
-function Wall(x, y, w, h, artist) {
+function Wall(x, y, w, h) {
     var wall = Entity(x, y, w, h);
-    artist.setColor(0, 0, 0, 1, wall);
-    artist.drawEntity(wall);
     Collidable(wall);
+    Renderable(wall, "once");
     return wall;
 }

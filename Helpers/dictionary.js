@@ -8,6 +8,7 @@ function Dictionary() {
 
     dictionary.get = get.bind(dictionary, maps);
     dictionary.set = set.bind(dictionary, maps);
+    dictionary.each = each.bind(dictionary, maps);
 
     return dictionary;
 }
@@ -27,4 +28,13 @@ function set(maps, key, value) {
         value: value
     });
     return this;
+}
+
+function each (maps) {
+    return _.map(maps, function shallowCloneMap (map) {
+        return {
+            key: map.key,
+            value: map.value
+        };
+    });
 }

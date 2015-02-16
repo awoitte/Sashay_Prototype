@@ -2,22 +2,26 @@ var Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
     unary = require("../Helpers/unary"),
     reverseVector = require("../Helpers/reverseVector"),
+    changedSinceLastRenderPredicate = require("../Helpers/changedSinceLastRenderPredicate"),
     Moveable = require("../Behaviours/moveable"),
     Collidable = require("../Behaviours/collidable"),
-    Healthable = require("../Behaviours/healthable");
+    Healthable = require("../Behaviours/healthable"),
+    Renderable = require("../Behaviours/renderable");
 
 module.exports = Enemy;
 
-function Enemy(enemyArtist, map) {
+function Enemy(map) {
     var enemy = Entity(Math.round(Math.random() * map.getW()) - 1, Math.round(Math.random() * map.getH()) - 1, 1, 1);
     Moveable(enemy);
     Collidable(enemy);
     Healthable(enemy);
+    Renderable(enemy, "if", {
+        image: "img/enemy.png",
+        predicate: changedSinceLastRenderPredicate
+    });
 
     enemy.id = uniqueId();
-    enemy.update = enemyArtist.drawEntity.bind(enemyArtist, enemy);
-    enemyArtist.setColor(255, 0, 0, 1, enemy).setImage("img/enemy.png", enemy);
-    enemy.update();
+    enemy.changedSinceLastRender = true;
 
     enemy.moveVector = {
         x: Math.round((Math.random() * 2) - 1),
@@ -51,7 +55,7 @@ function moveBasedOnInputVector(enemy, vector) {
 
     if (collisions.length === 0 && enemy.isWithinMap(destination)) {
         enemy.move(vector);
-        enemy.update();
+        enemy.changedSinceLastRender = true;
         return true;
     } else return false;
 }
