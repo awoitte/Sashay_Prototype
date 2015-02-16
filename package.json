@@ -1,0 +1,8 @@
+{
+  "name": "Sashay_Prototype",
+  "version": "0.0.0",
+  "description": "Prototype for a game creation tool I am planning to build",
+  "main": "index.js",
+  "author": "Alicia Woitte",
+  "license": "IDGAF"
+}
