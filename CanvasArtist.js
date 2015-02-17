@@ -64,7 +64,9 @@ function getContext($el) {
 function createEl() {
     var $el = $("<canvas width='" + $(window).width() + "' height='" + $(window).height() + "'>");
     $el.css({
-        position: "absolute"
+        position: "absolute",
+        top: 0,
+        left: 0
     });
     return $el;
 }
