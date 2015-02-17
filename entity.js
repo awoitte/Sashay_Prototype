@@ -1,9 +1,6 @@
 module.exports = Entity;
 
 var entityProto = {
-    isPointInEntity: function (vector) {
-        return vector.x >= this.x && vector.y >= this.y && vector.x < (this.x + this.w) &&  vector.y < (this.y + this.h);
-    },
     convertRelativeVectorToGlobal: function (vector) {
         return {
             x: this.x + vector.x,

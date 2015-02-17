@@ -4,5 +4,10 @@
   "description": "Prototype for a game creation tool I am planning to build",
   "main": "index.js",
   "author": "Alicia Woitte",
-  "license": "IDGAF"
+  "license": "IDGAF",
+  "dependencies": {
+    "jquery-browserify": "^1.8.1",
+    "sat": "^0.5.0",
+    "underscore": "^1.7.0"
+  }
 }
