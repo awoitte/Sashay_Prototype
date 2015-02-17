@@ -8,7 +8,7 @@ var _ = require("underscore"),
 
 module.exports = Dude;
 
-function Dude(x, y, keyDowns, map) {
+function Dude(x, y, keyDowns, gamepadDowns, map) {
     var dude = Entity(x, y, 1, 1);
 
     //behaviours
@@ -21,12 +21,12 @@ function Dude(x, y, keyDowns, map) {
 
     dude.id = uniqueId();
 
-
     dude.moveBasedOnInputVector = moveBasedOnInputVector.bind(dude, dude);
 
     dude.isWithinMap = isWithinMap.bind(dude, dude, map);
 
     keyDowns.forEach(handleKeyDown.bind(dude, dude));
+    gamepadDowns.forEach(handleButtonDown.bind(dude, dude));
 
     return dude;
 }
@@ -64,6 +64,46 @@ function handleKeyDown(dude, e) {
             y: 0
         });
         if (e.keyCode === 39) dude.moveBasedOnInputVector({
+            x: 1,
+            y: 0
+        });
+    }
+}
+
+function handleButtonDown (dude, e) {
+    if(e.keyCode !== void 0 && e.type === "axis"){
+        
+        if(e.keyCode === 1 && e.direction === "neg") dude.moveBasedOnInputVector({
+            x: 0,
+            y: -1
+        });
+        if (e.keyCode === 1 && e.direction === "pos") dude.moveBasedOnInputVector({
+            x: 0,
+            y: 1
+        });
+        if (e.keyCode === 0 && e.direction === "neg") dude.moveBasedOnInputVector({
+            x: -1,
+            y: 0
+        });
+        if (e.keyCode === 0 && e.direction === "pos") dude.moveBasedOnInputVector({
+            x: 1,
+            y: 0
+        });
+    }
+    if (e.keyCode && e.type === "button") {
+        if (e.keyCode === 12) dude.moveBasedOnInputVector({
+            x: 0,
+            y: -1
+        });
+        if (e.keyCode === 13) dude.moveBasedOnInputVector({
+            x: 0,
+            y: 1
+        });
+        if (e.keyCode === 14) dude.moveBasedOnInputVector({
+            x: -1,
+            y: 0
+        });
+        if (e.keyCode === 15) dude.moveBasedOnInputVector({
             x: 1,
             y: 0
         });

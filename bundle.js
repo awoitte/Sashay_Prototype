@@ -41,7 +41,7 @@ function checkForCollisions (entity, entitiesCallback, vector) {
 function defaultCollideCallback (entity) {
     //console.log("Collision involving " + JSON.stringify(entity));
 }
-},{"underscore":20}],2:[function(require,module,exports){
+},{"underscore":21}],2:[function(require,module,exports){
 var _ = require("underscore"),
     unary = require("../Helpers/unary");
 
@@ -73,7 +73,7 @@ function adjustHealth (health, amount) {
     if((health + amount) < 0) return 0;
     return health + amount;
 }
-},{"../Helpers/unary":13,"underscore":20}],3:[function(require,module,exports){
+},{"../Helpers/unary":13,"underscore":21}],3:[function(require,module,exports){
 module.exports = Moveable;
 
 function Moveable (entity) {
@@ -152,7 +152,7 @@ function renderStep(timestamp) {
 }
 
 window.requestAnimationFrame(renderStep);
-},{"../CanvasArtist":5,"../Helpers/dictionary":10,"underscore":20}],5:[function(require,module,exports){
+},{"../CanvasArtist":5,"../Helpers/dictionary":10,"underscore":21}],5:[function(require,module,exports){
 var $ = require("jquery-browserify"),
     Dictionary = require("./Helpers/dictionary");
 
@@ -235,7 +235,7 @@ function createImage(url) {
 function unitsToPixels(unit) {
     return unit * 20;
 }
-},{"./Helpers/dictionary":10,"jquery-browserify":19}],6:[function(require,module,exports){
+},{"./Helpers/dictionary":10,"jquery-browserify":20}],6:[function(require,module,exports){
 var _ = require("underscore"),
     Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
@@ -246,7 +246,7 @@ var _ = require("underscore"),
 
 module.exports = Dude;
 
-function Dude(x, y, keyDowns, map) {
+function Dude(x, y, keyDowns, gamepadDowns, map) {
     var dude = Entity(x, y, 1, 1);
 
     //behaviours
@@ -259,12 +259,12 @@ function Dude(x, y, keyDowns, map) {
 
     dude.id = uniqueId();
 
-
     dude.moveBasedOnInputVector = moveBasedOnInputVector.bind(dude, dude);
 
     dude.isWithinMap = isWithinMap.bind(dude, dude, map);
 
     keyDowns.forEach(handleKeyDown.bind(dude, dude));
+    gamepadDowns.forEach(handleButtonDown.bind(dude, dude));
 
     return dude;
 }
@@ -308,6 +308,46 @@ function handleKeyDown(dude, e) {
     }
 }
 
+function handleButtonDown (dude, e) {
+    if(e.keyCode !== void 0 && e.type === "axis"){
+        
+        if(e.keyCode === 1 && e.direction === "neg") dude.moveBasedOnInputVector({
+            x: 0,
+            y: -1
+        });
+        if (e.keyCode === 1 && e.direction === "pos") dude.moveBasedOnInputVector({
+            x: 0,
+            y: 1
+        });
+        if (e.keyCode === 0 && e.direction === "neg") dude.moveBasedOnInputVector({
+            x: -1,
+            y: 0
+        });
+        if (e.keyCode === 0 && e.direction === "pos") dude.moveBasedOnInputVector({
+            x: 1,
+            y: 0
+        });
+    }
+    if (e.keyCode && e.type === "button") {
+        if (e.keyCode === 12) dude.moveBasedOnInputVector({
+            x: 0,
+            y: -1
+        });
+        if (e.keyCode === 13) dude.moveBasedOnInputVector({
+            x: 0,
+            y: 1
+        });
+        if (e.keyCode === 14) dude.moveBasedOnInputVector({
+            x: -1,
+            y: 0
+        });
+        if (e.keyCode === 15) dude.moveBasedOnInputVector({
+            x: 1,
+            y: 0
+        });
+    }
+}
+
 function moveBasedOnInputVector(dude, vector) {
     var destination = dude.convertRelativeVectorToGlobal(vector),
         collisions = dude.checkForCollisions(destination);
@@ -315,7 +355,7 @@ function moveBasedOnInputVector(dude, vector) {
         dude.move(vector);
     }
 }
-},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/uniqueId":14,"../entity":15,"underscore":20}],7:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/uniqueId":14,"../entity":16,"underscore":21}],7:[function(require,module,exports){
 var Entity = require("../entity"),
     uniqueId = require("../Helpers/uniqueId"),
     unary = require("../Helpers/unary"),
@@ -373,7 +413,7 @@ function moveBasedOnInputVector(enemy, vector) {
         return true;
     } else return false;
 }
-},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/reverseVector":11,"../Helpers/unary":13,"../Helpers/uniqueId":14,"../entity":15}],8:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/healthable":2,"../Behaviours/moveable":3,"../Behaviours/renderable":4,"../Helpers/reverseVector":11,"../Helpers/unary":13,"../Helpers/uniqueId":14,"../entity":16}],8:[function(require,module,exports){
 var Entity = require("../entity"),
     Collidable = require("../Behaviours/collidable"),
     Renderable = require("../Behaviours/renderable");
@@ -393,7 +433,7 @@ function Wall(x, y, w, h) {
     });
     return wall;
 }
-},{"../Behaviours/collidable":1,"../Behaviours/renderable":4,"../entity":15}],9:[function(require,module,exports){
+},{"../Behaviours/collidable":1,"../Behaviours/renderable":4,"../entity":16}],9:[function(require,module,exports){
 module.exports = function argsToArray(args) {
     return Array.prototype.splice.call(args, 0);
 }
@@ -438,7 +478,7 @@ function each (maps) {
         };
     });
 }
-},{"underscore":20}],11:[function(require,module,exports){
+},{"underscore":21}],11:[function(require,module,exports){
 module.exports = function reverseVector (vector) {
     return {
         x: -1 * vector.x,
@@ -469,6 +509,60 @@ module.exports = function uniqueId () {
 
 var lastId = 1;
 },{}],15:[function(require,module,exports){
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Credit to http://gamedevelopment.tutsplus.com/tutorials/using-the-html5-gamepad-api-to-add-controller-support-to-browser-games--cms-21345 //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var $ = require("jquery-browserify");
+
+var gamepadProto = {
+    getState: function getState () {
+        return lastGamepadState;
+    }
+};
+
+module.exports = GamePad;
+
+function GamePad() {
+    if (!canGame()) throw "Gamepad Unsuported";
+
+    return Object.create(gamepadProto);
+}
+
+var prompt = "To begin using your gamepad, connect it and press any button!",
+    noGamepadState = {
+        prompt: prompt
+    },
+    lastGamepadState = noGamepadState,
+    hasGP = false,
+    repGP;
+
+$(window).on("gamepadconnected", function() {
+    hasGP = true;
+    repGP = window.setInterval(reportOnGamepad, 100);
+});
+
+$(window).on("gamepaddisconnected", function() {
+    lastGamepadState = noGamepadState;
+    window.clearInterval(repGP);
+});
+
+var checkForGamepad = window.setInterval(function() {
+    if (navigator.getGamepads()[0]) {
+        if (!hasGP) $(window).trigger("gamepadconnected");
+        window.clearInterval(checkForGamepad);
+    }
+}, 500);
+
+function canGame() {
+    return "getGamepads" in navigator;
+}
+
+var once = true;
+function reportOnGamepad() {
+    lastGamepadState = navigator.getGamepads()[0];
+}
+},{"jquery-browserify":20}],16:[function(require,module,exports){
 module.exports = Entity;
 
 var entityProto = {
@@ -491,7 +585,7 @@ function Entity(x, y, w, h) {
     entity.h = h;
     return entity;
 }
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var argsToArray = require("./Helpers/argsToArray"),
     throttle = require("./Helpers/throttle");
 
@@ -529,9 +623,11 @@ function pushToSubscriptions(subscriptions) {
         callback.apply(null, args);
     });
 }
-},{"./Helpers/argsToArray":9,"./Helpers/throttle":12}],17:[function(require,module,exports){
-var Map = require("./map"),
+},{"./Helpers/argsToArray":9,"./Helpers/throttle":12}],18:[function(require,module,exports){
+var _ = require("underscore"),
+    Map = require("./map"),
     EventList = require("./eventList"),
+    Gamepad = require("./Input/gamepad"),
     dudeFactory = require("./Factories/dudeFactory"),
     wallFactory = require("./Factories/wallFactory"),
     enemyFactory = require("./Factories/enemyFactory"),
@@ -553,31 +649,54 @@ map.eachTile(function setTileToRandomColor(tile) {
     });
 });
 
-function randomTileOffset () {
+function randomTileOffset() {
     return Math.round(Math.random() * 2) + 1;
 }
 
 function makeARandomWall() {
     var x = Math.round(Math.random() * mapW),
-    y = Math.round(Math.random() * mapH),
-    w = Math.round(Math.random() * pixelBugdetPerWall),
-    h = Math.round(pixelBugdetPerWall - w),
-    overMapWBy = (x + w) - mapW,
-    overMapHBy = (y + h) - mapH;
+        y = Math.round(Math.random() * mapH),
+        w = Math.round(Math.random() * pixelBugdetPerWall),
+        h = Math.round(pixelBugdetPerWall - w),
+        overMapWBy = (x + w) - mapW,
+        overMapHBy = (y + h) - mapH;
 
-    if(overMapWBy > 0) x -= overMapWBy;
-    if(overMapHBy > 0) y -= overMapHBy;
-    wallFactory(x,y,w,h);
+    if (overMapWBy > 0) x -= overMapWBy;
+    if (overMapHBy > 0) y -= overMapHBy;
+    wallFactory(x, y, w, h);
 }
 
 for (var i = 0; i < 20; i++) makeARandomWall();
 for (var i = 0; i < 50; i++) enemyFactory(map);
 
+//////////
+//Input //
+//////////
+
 var keyDowns = EventList(),
-    dude = dudeFactory(0, 0, keyDowns, map);
+    gamepadDowns = EventList(),
+    gamepad = Gamepad(),
+    dude = dudeFactory(0, 0, keyDowns, gamepadDowns, map);
 
 $(document.body).keydown(keyDowns.push);
-},{"./Behaviours/renderable":4,"./Factories/dudeFactory":6,"./Factories/enemyFactory":7,"./Factories/wallFactory":8,"./eventList":16,"./map":18}],18:[function(require,module,exports){
+
+setInterval(function reportPressedGampadKeys() {
+    var buttonState = gamepad.getState();
+    if(buttonState && buttonState.buttons && buttonState.buttons.forEach) buttonState.buttons.forEach(function reportPressedKey (button, i) {
+        if(button.pressed) gamepadDowns.push({
+            type: "button",
+            keyCode: i
+        });
+    });
+    if(buttonState && buttonState.axes && buttonState.axes.forEach) buttonState.axes.forEach(function reportPressedKey (axis, i) {
+        if(Math.round(axis)) gamepadDowns.push({
+            type: "axis",
+            keyCode: i,
+            direction: Math.round(axis) > 0 ? "pos" : "neg"
+        });
+    });
+}, 100);
+},{"./Behaviours/renderable":4,"./Factories/dudeFactory":6,"./Factories/enemyFactory":7,"./Factories/wallFactory":8,"./Input/gamepad":15,"./eventList":17,"./map":19,"underscore":21}],19:[function(require,module,exports){
 var Entity = require("./entity"),
     unary = require("./Helpers/unary");
 
@@ -617,7 +736,7 @@ function eachTile(tiles, callback) {
     tiles.forEach(callback);
     return this;
 }
-},{"./Helpers/unary":13,"./entity":15}],19:[function(require,module,exports){
+},{"./Helpers/unary":13,"./entity":16}],20:[function(require,module,exports){
 // Uses Node, AMD or browser globals to create a module.
 
 // If you want something that will work in other stricter CommonJS environments,
@@ -9951,7 +10070,7 @@ return jQuery;
 
 })( window ); }));
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 //     Underscore.js 1.7.0
 //     http://underscorejs.org
 //     (c) 2009-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -11368,4 +11487,4 @@ return jQuery;
   }
 }.call(this));
 
-},{}]},{},[17]);
+},{}]},{},[18]);
